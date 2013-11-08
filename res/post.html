@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:fb="http://ogp.me/ns/fb#">
+<head>
+	<title>{{title}} | {{blog}}</title>
+	<meta charset="utf-8"/>
+	<link rel="icon" type="image/png" href="favicon.png"/>
+	<meta name="robots" content="all"/>
+
+	<link rel="author" href="{{gplus}}"/>
+
+	<meta name="twitter:card" content="summary"/>
+	<meta name="twitter:url" content="{{url}}"/>
+	<meta name="twitter:title" content="{{title}}"/>
+	<!--<meta name="twitter:description" content="Twitter's new Twitter Cards API allows developers to add META tags to their website, and Twitter will build card content from links to a given site."/>-->
+	<meta name="twitter:image" content="{{img}}"/>
+	<meta name="twitter:site" content="@{{twitter}}"/>
+	<meta name="twitter:creator" content="@{{twitter}}"/>
+
+	<meta property="og:title" content="{{title}}"/>
+	<meta property="og:type" content="article"/>
+	<meta property="og:url" content="{{url}}"/>
+	<meta property="og:image" content="{{img}}"/>
+	<meta property="og:article:published_time" content="{{date}}"/>
+	<meta property="og:article:author" content="{{facebook}}"/>
+</head>
+<body>
+	<script>window.location.href = "../#/post/"+window.location.pathname.split('/').pop().replace('.html', '')</script>
+	<article>
+		<h1><a href='{{url}}'>{{title}}</a></h1>
+		{{article}}
+	</article>
+</body>
+</html>

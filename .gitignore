@@ -1,0 +1,8 @@
+*.sublime-project
+*.sublime-workspace
+min.*
+node_modules
+index.html
+post/drafts/*
+post/published/*
+post/*.*
