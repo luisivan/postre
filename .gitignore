@@ -1,10 +1,5 @@
 *.sublime-project
 *.sublime-workspace
-min.*
-index.html
-post/drafts/*
-post/published/*
-post/*.*
 
 lib-cov
 *.seed
