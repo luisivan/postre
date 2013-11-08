@@ -53,7 +53,7 @@ var Posts = {};
 Posts.publish = function(file) {
 	var title = file.replace('.md', ''),
 		filename = title.replace(/ /g, '_').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase(),
-		post = fs.readFileSync('post/drafts' + file, "utf8");
+		post = fs.readFileSync('post/drafts/' + file, "utf8");
 
 	var data = config;
 	data.url = config.blogurl + '/post/' + filename + '.html';
@@ -69,9 +69,9 @@ Posts.publish = function(file) {
 
 	fs.writeFileSync('post/' + filename + '.html', html);
 
-	//fs.renameSync('post/drafts/' + file, 'post/published/' + file);
+	fs.renameSync('post/drafts/' + file, 'post/published/' + file);
 	var img = 'post/drafts/' + file.replace('.md', '.jpg');
-	//fs.renameSync(img, 'post/' + filename + '.jpg');
+	fs.renameSync(img, 'post/' + filename + '.jpg');
 	fs.createReadStream(img).pipe(fs.createWriteStream('post/' + filename + '.jpg'));
 
 	var posts = fs.readFileSync('posts.txt', "utf8").split(',');
@@ -85,7 +85,7 @@ function publishPosts() {
 
 	var drafts = fs.readdirSync('post/drafts');
 	for (var i in drafts) {
-		var stat = fs.statSync('post/drafts' + drafts[i]);
+		var stat = fs.statSync('post/drafts/' + drafts[i]);
 		if (!stat.isFile() || drafts[i].indexOf('.md') == -1)
 		continue;
 
