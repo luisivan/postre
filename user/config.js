@@ -1,6 +1,6 @@
 var config = {
 	//blogurl: 'http://luisivan.net',
-    blogurl: 'http://localhost',
+    blogurl: 'http://localhost/postre',
     //blogurl: 'http://f95229b.ngrok.com',
     blog: 'Luis Iván Cuende',
     author: 'Luis Iván Cuende',

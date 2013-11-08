@@ -5,7 +5,8 @@ var action = process.argv[2],
 	fs = require('fs');
 
 var uglify = require("uglify-js"),
-	sqwish = require('sqwish');
+	sqwish = require('sqwish'),
+	markdown = require('markdown').markdown;
 
 var Build = {};
 
@@ -39,10 +40,10 @@ Build.watch = function() {
 		//monitor.files['/home/mikeal/.zshrc'] // Stat object for my zshrc.
 	    monitor.on("created", function (f, stat) { });
 	    monitor.on("changed", function (f, curr, prev) {
+	    	if (f.indexOf('min.') !== -1) return;
+	    	console.log(f + ' was modified');
 	    	var ext = f.split('.').pop();
-	    	console.log(ext);
-	    	if (ext == ('css' || 'js')) Build[ext]();
-	    	console.log(f);
+	    	if (ext == 'css' || ext == 'js') Build[ext]();
 	    });
 	    monitor.on("removed", function (f, stat) { });
 	});
@@ -69,9 +70,9 @@ Posts.publish = function(file) {
 
 	fs.writeFileSync('post/' + filename + '.html', html);
 
-	fs.renameSync('post/drafts/' + file, 'post/published/' + file);
+	//fs.renameSync('post/drafts/' + file, 'post/published/' + file);
 	var img = 'post/drafts/' + file.replace('.md', '.jpg');
-	fs.renameSync(img, 'post/' + filename + '.jpg');
+	//fs.renameSync(img, 'post/' + filename + '.jpg');
 	fs.createReadStream(img).pipe(fs.createWriteStream('post/' + filename + '.jpg'));
 
 	var posts = fs.readFileSync('posts.txt', "utf8").split(',');
@@ -80,16 +81,16 @@ Posts.publish = function(file) {
 		fs.appendFileSync('posts.txt', filename + ',');
 }
 
-function publishPosts() {
+Posts.publishDrafts = function() {
 	var markdown = require("markdown").markdown;
 
 	var drafts = fs.readdirSync('post/drafts');
 	for (var i in drafts) {
 		var stat = fs.statSync('post/drafts/' + drafts[i]);
 		if (!stat.isFile() || drafts[i].indexOf('.md') == -1)
-		continue;
+			continue;
 
-		
+		Posts.publish(drafts[i]);
 	}
 }
 
@@ -98,9 +99,9 @@ if (action == 'deploy') {
 	Build.js();
 	Build.css();
 } else if (action == 'post')
-	publishPosts();
+	Posts.publishDrafts();
 else if (action == 'develop')
-	develop();
+	Build.watch();
 else
 	console.log('Use "deploy" to compile the blog and "post" to post the draft(s)');
 

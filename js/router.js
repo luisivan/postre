@@ -38,6 +38,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
           callback = _ref[regexText];
           regex = new RegExp(regexText);
           url = state.data.url || state.hash;
+          alert(url);
+          alert('path'+window.location.pathname);
+          url = url.replace(window.location.pathname, '/');
+          alert('final'+url);
           if (regex.test(url)) {
             callback.apply(window, regex.exec(url).slice(1));
             return this.trigger = true;
