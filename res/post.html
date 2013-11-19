@@ -11,7 +11,7 @@
 	<meta name="twitter:card" content="summary"/>
 	<meta name="twitter:url" content="{{url}}"/>
 	<meta name="twitter:title" content="{{title}}"/>
-	<!--<meta name="twitter:description" content="Twitter's new Twitter Cards API allows developers to add META tags to their website, and Twitter will build card content from links to a given site."/>-->
+	<!--<meta name="twitter:description" content="Twitter's new Twitter Cards API"/>-->
 	<meta name="twitter:image" content="{{img}}"/>
 	<meta name="twitter:site" content="@{{twitter}}"/>
 	<meta name="twitter:creator" content="@{{twitter}}"/>
@@ -24,7 +24,7 @@
 	<meta property="og:article:author" content="{{facebook}}"/>
 </head>
 <body>
-	<script>window.location.href = "../#/post/"+window.location.pathname.split('/').pop().replace('.html', '')</script>
+	<script>window.location.href = "{{blogurl}}/?post="+window.location.pathname.split('/').pop()</script>
 	<article>
 		<h1><a href='{{url}}'>{{title}}</a></h1>
 		{{article}}

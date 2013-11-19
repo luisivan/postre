@@ -1,108 +1,187 @@
 #!/usr/bin/env node
 
-var action = process.argv[2],
-	config = require('./user/config.js'),
-	fs = require('fs');
-
-var uglify = require("uglify-js"),
+var fs = require('fs'),
+	net = require('net'),
+	git = require('gift'),
+	watch = require('watch')
 	sqwish = require('sqwish'),
+	uglify = require("uglify-js"),
 	markdown = require('markdown').markdown;
 
-var Build = {};
+var action = process.argv[2],
+	config = require('./user/config.js');
 
-Build.html = function() {
-	console.log('Building HTML');
-	var html = fs.readFileSync('res/home.html');
-	for (var prop in config)
-		html = html.toString().replace(new RegExp('{{'+prop+'}}', 'g'), config[prop]);
+process.chdir(__dirname);
 
-	fs.writeFileSync('index.html', html);
-}
+var Build = {
 
-Build.js = function() {
-	console.log('Minifying JS');
-	var js = uglify.minify(["js/minified.js", "js/history.js", "js/router.js", "js/readingTime.js", "user/config.js", "js/script.js"], {
-	    outSourceMap: "min.js.map"
-	});
-	fs.writeFileSync('min.js', js.code + '//# sourceMappingURL=min.js.map');
-	fs.writeFileSync('min.js.map', js.map);
-}
-
-Build.css = function() {
-	console.log('Minifying CSS');
-	var css = fs.readFileSync('res/style.css', "utf8");
-	fs.writeFileSync('min.css', sqwish.minify(css, true) + '/*@ sourceURL=res/style.css */');
-}
-
-Build.watch = function() {
-	var watch = require('watch');
-	watch.createMonitor('.', {ignoreDotFiles: true}, function (monitor) {
-		//monitor.files['/home/mikeal/.zshrc'] // Stat object for my zshrc.
-	    monitor.on("created", function (f, stat) { });
-	    monitor.on("changed", function (f, curr, prev) {
-	    	if (f.indexOf('min.') !== -1) return;
-	    	console.log(f + ' was modified');
-	    	var ext = f.split('.').pop();
-	    	if (ext == 'css' || ext == 'js') Build[ext]();
-	    });
-	    monitor.on("removed", function (f, stat) { });
-	});
-}
-
-var Posts = {};
-
-Posts.publish = function(file) {
-	var title = file.replace('.md', ''),
-		filename = title.replace(/ /g, '_').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase(),
-		post = fs.readFileSync('post/drafts/' + file, "utf8");
-
-	var data = config;
-	data.url = config.blogurl + '/post/' + filename + '.html';
-	data.title = title;
-	data.img = config.blogurl + '/post/' + filename + '.jpg';
-	data.date = new Date().toISOString();
-	data.article = markdown.toHTML(post);
-
-	var html = fs.readFileSync('res/post.html');
-
-	for (var prop in data)
-		html = html.toString().replace(new RegExp('{{'+prop+'}}', 'g'), data[prop]);
-
-	fs.writeFileSync('post/' + filename + '.html', html);
-
-	//fs.renameSync('post/drafts/' + file, 'post/published/' + file);
-	var img = 'post/drafts/' + file.replace('.md', '.jpg');
-	//fs.renameSync(img, 'post/' + filename + '.jpg');
-	fs.createReadStream(img).pipe(fs.createWriteStream('post/' + filename + '.jpg'));
-
-	var posts = fs.readFileSync('posts.txt', "utf8").split(',');
-	posts.pop();
-	if (posts.indexOf(filename) == -1)
-		fs.appendFileSync('posts.txt', filename + ',');
-}
-
-Posts.publishDrafts = function() {
-	var markdown = require("markdown").markdown;
-
-	var drafts = fs.readdirSync('post/drafts');
-	for (var i in drafts) {
-		var stat = fs.statSync('post/drafts/' + drafts[i]);
-		if (!stat.isFile() || drafts[i].indexOf('.md') == -1)
-			continue;
-
-		Posts.publish(drafts[i]);
+	template: function(str, data) {
+		for (var prop in data)
+			str = str.toString().replace(new RegExp('{{'+prop+'}}', 'g'), data[prop]);
+		return str;
+	},
+	html: function() {
+		var html = fs.readFileSync('res/home.html');
+		fs.writeFileSync('index.html', Build.template(html, config));
+	},
+	css: function() {
+		var css = fs.readFileSync('res/style.css', "utf8");
+		fs.writeFileSync('min.css', sqwish.minify(css, true) + '/*@ sourceURL=res/style.css */');
+	},
+	js: function() {
+		var js = uglify.minify(["js/minified.js", "js/history.js", "js/router.js", "js/readingTime.js", "user/config.js", "js/script.js"], {
+		    outSourceMap: "min.js.map"
+		});
+		fs.writeFileSync('min.js', js.code + '//# sourceMappingURL=min.js.map');
+		fs.writeFileSync('min.js.map', js.map);
 	}
 }
 
-if (action == 'deploy') {
-	Build.html();
-	Build.js();
-	Build.css();
-} else if (action == 'post')
-	Posts.publishDrafts();
+var Posts = {
+	template: fs.readFileSync('res/post.html'),
+	
+	publish: function(file) {
+		var id = file.replace('.md', '').replace(/ /g, '_').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase();
+
+		var post = {orig: {md: file, img: file.replace('.md', '.jpg')}, html: 'post/'+id+'.html', img: 'post/'+id+'.jpg' };
+
+		var data = config;
+		data.url = config.blogurl + post.html;
+		data.title = file.replace('.md', '');
+		data.img = config.blogurl + post.img;
+		// or existing date if you are updatingggg
+		data.date = new Date().toISOString();
+		data.article = markdown.toHTML(fs.readFileSync('post/drafts/' + post.orig.md, "utf8"));
+
+		var html = Build.template(Posts.template, data);
+		//.toString()?
+
+		fs.writeFileSync(post.html, html);
+		fs.renameSync('post/drafts/' + post.orig.md, 'post/published/' + post.orig.md);
+
+		try {
+			fs.createReadStream('post/drafts/' + post.orig.img).pipe(fs.createWriteStream(post.img));
+			fs.renameSync('post/drafts/' + post.orig.img, 'post/published/' + post.orig.md);
+		} catch (e) {}
+
+		var posts = fs.readFileSync('posts.txt', "utf8").split(',').slice(0, -1);
+		if (posts.indexOf(id) == -1)
+			fs.appendFileSync('posts.txt', filename + ',');
+
+		/*var item = fs.readFileSync('res/item.xml');
+		data.date = new Date().toUTCString();
+		for (var prop in data)
+			item = item.replace(new RegExp('{{'+prop+'}}', 'g'), data[prop]);*/
+
+		// what if i update a post... or i update my bio... what happens with the feed??
+	},
+
+	publishAll: function() {
+		fs.readdirSync('post/drafts').forEach(function(draft) {
+			if (draft.indexOf('.md') !== -1) Posts.publish(draft);
+		});
+	},
+
+	remove: function(title) {
+		var id = title.replace(/ /g, '_').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase();
+		fs.writeFileSync('posts.txt', fs.readFileSync('posts.txt', "utf8").replace(','+id+',', ','));
+		fs.unlinkSync('post/published/'+title+'.jpg');
+		fs.unlinkSync('post/'+id+'.md');
+		fs.unlinkSync('post/'+id+'.jpg');
+	}
+}
+
+var RSS = {};
+
+RSS.item = function(file) {
+
+}
+
+var socket;
+
+try { fs.unlinkSync('/tmp/postre.sock'); } catch (e) {}
+net.createServer(function(client) {
+	socket = client;
+    client.on('data', function(data) {
+    	var action = JSON.parse(data.toString()).action;
+    	if (action == 'publish') {
+    		Posts.publishAll();
+    		repo.commit('Published new stuff', {all: true}, function(err) {
+    			!err && repo.remote_push('origin gh-pages');
+    		});
+    		
+    	}
+    });
+}).listen('/tmp/postre.sock');
+
+var repo = git('.');
+
+watch.createMonitor('.', {ignoreDotFiles: true}, function (monitor) {
+    monitor.on("created", function (f, stat) {
+    	if (f.indexOf('.md') == -1) return;
+    	
+    	socket.write(JSON.stringify({file: __dirname + '/' + f, event: 'created'}));
+    });
+    monitor.on("changed", function (f, curr, prev) {
+    	if (f.indexOf('.md') == -1) return;
+
+    	socket.write(JSON.stringify({file: __dirname + '/' + f, event: 'change'}));
+    });
+    monitor.on("removed", function (f, stat) {
+    	if (f.indexOf('.md') == -1) return;
+
+    	socket.write(JSON.stringify({file: __dirname + '/' + f, event: 'removed'}));
+    	var title = f.replace('post/published/', '').replace('.md', '');
+    	Posts.remove(title);
+    	repo.commit(title + ' was deleted', {all: true});
+    	repo.remote_push('origin gh-pages');
+    });
+});
+
+/*
+
+to create post, just create the .md and .jpg on drafts
+
+to modify post, copy the .md to drafts
+
+to delete post, delete the .md
+
+*/
+
+
+/*
 else if (action == 'develop')
-	Build.watch();
-else
-	console.log('Use "deploy" to compile the blog and "post" to post the draft(s)');
+
+	    	if (f.indexOf('min.') !== -1 || f.indexOf('index.html') !== -1) return;
+	    	console.log(f + ' was modified');
+	    	var ext = f.split('.').pop();
+	    	if (['html', 'js', 'css'].indexOf(ext) !== -1) Build[ext]();
+
+*/
 
 // i have to create another
+
+/* 
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>mysuperblog.me</title>
+        <description>This is mysuperblog personnal feed!</description>
+        <link>http://mysuperblog.me/</link>
+        <author>yournemail@me.com (Your Name)</author>
+        <lastBuildDate>Tue, 09 Apr 2013 20:46:05 GMT</lastBuildDate>
+        <image>http://mysuperblog.me/image.png</image>
+        <copyright>All rights reserved 2013, myself</copyright>
+        <generator>Feed for Node.js</generator>
+        <item>
+            <title><![CDATA[Hello World]]></title>
+            <link>/post/hello-world</link>
+            <pubDate>Wed, 08 Aug 2012 22:00:00 GMT</pubDate>
+            <description><![CDATA[<p><em>Hello world!!</em> this is my first fantastic post!</p><p><a href="/post/hello-world" title="Read more of Hello World">read more</a></p>]]></description>
+        </item>
+    </channel>
+</rss>
+
+*/

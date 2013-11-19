@@ -2,153 +2,151 @@
 
 var MINI = require('minified'); var $ = MINI.$, $$=MINI.$$, EE=MINI.EE;
 
+var onlink = function(e) {
+	e.preventDefault();
+	History.pushState(null, config.blog, this.href);
+}
+$('header h1 a').on('click', onlink);
+
+var socialData;
+$('#social a').on('click', function(e) {
+	e.preventDefault();
+	var c = $(this).get('@class');
+	var params = Object.keys(socialData[c]).map(function(k) {
+	    return encodeURIComponent(k) + '=' + encodeURIComponent(socialData[c][k])
+	}).join('&');
+	window.open(this.href + params, null, 'width=600,height=360,top='+(window.innerHeight/2 - 180) +', left='+(window.innerWidth/2 - 300));
+});
+
 var Home = function() {
+	window.post && window.post.destroy();
+
+	this.getPosts = function() {
+		$.request('get', config.blogurl+'/posts.txt').then(function(text) {
+			home.posts = text.split(',').slice(0, -1);
+			config.homePosts = (home.posts.length > config.homePosts) ? config.homePosts : home.posts.length;
+			for (var i=0; i<config.homePosts; i++) home.addPost(home.posts[i]+'.html');
+		});
+	}
+
+	this.addPost = function(file) {
+		new Post(file, function(title, content, time) {
+			content.removeChild(title);
+			var trimmed = content.textContent.substr(0, 500);
+			trimmed = trimmed.substr(0, Math.min(trimmed.length, trimmed.lastIndexOf(" "))) + '...';
+
+			home.shouldAddPost(file, EE('article', {'@id': file}, [time, title, EE("p", trimmed)]));
+		});
+	}
+
+	this.shouldAddPost = function(file, article) {
+		if (this.posts.indexOf(file.replace('.html', '')) == this.postsLoaded++) {
+			$('section').add(article);
+			$('#'+file).set({$$fade: 0}).animate({$$fade: 1});
+		} else
+			setTimeout(this.shouldAddPost.bind(this, file, article), 100);
+	}
+
+	this.destroy = function() {
+		$.off(this.onscroll);
+		$('section article').remove();
+	}
+
 	this.postsLoaded = 0;
 	this.posts = [];
 	this.getPosts();
 
-	$(document).on('scroll', function() {
-	    if (window.scrollY > (document.height - 100) - window.innerHeight) {
+	$(document).on('scroll', this.onscroll = function() {
+	    if (window.scrollY > (document.body.scrollHeight - 100) - window.innerHeight)
 	    	if (home.postsLoaded < home.posts.length)
-	        	home.addPost(home.posts[home.postsLoaded]);
-	    }
+	        	home.addPost(home.posts[home.postsLoaded]+'.html');
 	});
-}
-
-Home.prototype.getPosts = function() {
-	$.request('get', 'posts.txt').then(function(text) {
-		home.posts = text.split(',');
-		home.posts.pop();
-		config.homePosts = (home.posts.length > config.homePosts) ? config.homePosts : home.posts.length;
-		for (var i=0; i<config.homePosts; i++)
-			home.addPost(home.posts[i]);
-	});
-}
-
-Home.prototype.addPost = function(file) {
-	var post = new Post(file);
-
-	post.load(function(article, title, time) {
-		var href = title.getElementsByTagName('a')[0].href;
-		title.getElementsByTagName('a')[0].href = href.replace('.html', '');
-		article.removeChild(title);
-		var trimmed = article.textContent.substr(0, 500);
-		trimmed = trimmed.substr(0, Math.min(trimmed.length, trimmed.lastIndexOf(" "))) + '...';
-
-		var article = EE('article', {'@id': file}, [time, title, EE("p", trimmed)]);
-		home.shouldAddPost(file, article);
-	});
-}
-
-Home.prototype.shouldAddPost = function(file, article) {
-	if (this.posts.indexOf(file) == this.postsLoaded) {
-		$('section').add(article);
-		$('#'+file).set({$$fade: 0}).animate({$$fade: 1});
-		if (config.homePosts == ++this.postsLoaded)
-			$('footer').set({$$fade: 0}).animate({$$fade: 1});
-	} else
-		setTimeout(this.shouldAddPost.bind(this, file, article), 100);
-}
-
-var Post = function(file) {
-	this.file = config.blogurl + '/post/'+file+'.html';
 }
 
 var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-Post.prototype.load = function(cb) {
-	$.request('get', this.file).then(function(html) {
-		var article = document.createElement('div');
-		article.innerHTML = html;
-		var date = new Date(article.querySelector('meta[property="og:article:published_time"]').getAttribute('content').split('T')[0]),
-			time = EE('time', date.getDate()+' '+months[date.getMonth()]+' '+date.getFullYear());
-		cb(article.getElementsByTagName('article')[0], article.getElementsByTagName('h1')[0], time);
-	}).error(router.rescue404);
-}
+var Post = function(file, cb) {
+	$('section').on('article h1 a', 'click', onlink);
 
-Post.prototype.render = function(article, title, time) {
-	document.title = title.textContent + ' | ' + config.blog;
-	$('#image').set('$backgroundImage', 'url('+this.file.replace('.html', '.jpg')+')').set({$display: 'block', $top: '-342px'}).animate({$top: '0px'});
-	$('section').addFront(article);
-	$(article).addFront(time).set({$$fade: 0}).animate({$$fade: 1});
-	this.loadSocial();
-	this.loadComments();
-	if (!window.mobile)
-		var r = new ReadingTime(article);
-	else
-		$('header h2, #twitter').set('$display', 'none');
-	$('footer').set({$$fade: 0}).animate({$$fade: 1});
-}
+	this.file = config.blogurl + '/post/'+file;
 
-Post.prototype.loadSocial = function() {
-	$("#social").set({$$fade: 0}).animate({$$fade: 1});
-	$('#social a').on('click', function() { return false; });
-	var title = $('article h1').sub(0,1).text();
-	var data = {
-		twitter: {
-			text: title,
-			url: this.file,
-			via: config.twitter
-		},
-		facebook: { u: this.file },
-		google: { url: this.file },
-		linkedin: { url: this.file },
-		tumblr: {
-			t: title,
-			u: encodeURIComponent(this.file)
-		}
-	}
-	for (var e in data) {
-		$('#social a.'+e).on('click', function() {
-			var e = $(this).get('@class');
-			var params = Object.keys(data[e]).map(function(k) {
-			    return encodeURIComponent(k) + '=' + encodeURIComponent(data[e][k])
-			}).join('&');
-			window.open(this.href + params, null, 'width=600,height=360,top='+(window.innerHeight/2 - 180) +', left='+(window.innerWidth/2 - 300));
+	this.load = function(cb) {
+		$.request('get', this.file).then(function(html) {
+			var article = document.createElement('div');
+			article.innerHTML = html;
+			var date = new Date(article.querySelector('meta[property="og:article:published_time"]').getAttribute('content').split('T')[0]),
+				time = EE('time', date.getDate()+' '+months[date.getMonth()]+' '+date.getFullYear()),
+				title = article.getElementsByTagName('h1')[0];
+			title.firstChild.onclick = onlink;
+			cb(title, article.getElementsByTagName('article')[0], time);
 		});
 	}
 
-	var follow = EE('a', {'@href': "https://twitter.com/"+config.twitter, '@class': "twitter-follow-button", "%show-count": "false", "%size": "large"}, 'Follow @'+config.twitter);
-	$('article').add(follow);
-	$('body').add(EE('script', {'@async': true, '@src': '//platform.twitter.com/widgets.js'}));
-
-	if (window.mobile) return;
-	$(document).on('scroll', function() {
-		var distance = (window.scrollY > 329) ? window.scrollY-329-20 : 0;
-	    $('#social').animate({'$top': distance+'px'}, 50);
-	});
-}
-
-Post.prototype.loadComments = function() {
-   	$('body').add(EE('script', {'@async': true, '@src': '//' + config.disqus + '.disqus.com/embed.js'}));
-    $('#disqus_thread').set({$$fade: 0}).animate({$$fade: 1});
-}
-
-var router = new Router();
-
-router.route('/', function() {
-	window.home = new Home();
-});
-
-router.route('/post/:file', function(file) {
-	var post = new Post(file);
-    
-    post.load(function(article, title, time) { post.render(article, title, time); });
-});
-
-router.rescue(function() {
-	var json = {
-		status: 404, text: "We couldn't find that page", workaround: "Redirecting you to the homepage in *3*"
-	}
-	$('section').add(EE('div', {'@id': 'error404'}, [EE('h1', '404'), EE('p', "var  response  =  " + JSON.stringify(json, null, "\t"))]));
-	$('footer').set({$$fade: 1});
-	var c = 3;
-	setInterval(function() {
-		if (c == 0)
-			location.href = config.blogurl;
+	this.render = function(title, content, time) {
+		window.home && window.home.destroy();
+		document.title = title.textContent + ' | ' + config.blog;
+		$('#image').set('$backgroundImage', 'url('+this.file.replace('.html', '.jpg')+')').set({$display: 'block', $top: '-342px'}).animate({$top: '0px'});
+		$('section').addFront(content);
+		$(content).addFront(time).set({$$fade: 0}).animate({$$fade: 1});
+		this.loadSocial();
+		this.loadComments();
+		if (!window.mobile)
+			var r = new ReadingTime(content);
 		else
-			$('#error404 p').fill($('#error404 p').text().replace(c, c = c-1));
-	}, 1000);
-});
+			$('header h2, #twitter').set('$display', 'none');
+	}
 
-router.start();
+	this.loadSocial = function() {
+		$("#social").set({$display: 'block', $$fade: 0}).animate({$$fade: 1});
+		var title = $('article h1').sub(0,1).text();
+		socialData = {
+			twitter: { text: title, url: this.file, via: config.twitter },
+			facebook: { u: this.file },
+			google: { url: this.file },
+			linkedin: { url: this.file },
+			tumblr: { t: title, u: encodeURIComponent(this.file) }
+		}
+
+		var follow = EE('a', {'@href': "https://twitter.com/"+config.twitter, '@class': "twitter-follow-button", "%show-count": "false", "%size": "large"}, 'Follow @'+config.twitter);
+		$('article').add(follow);
+		$('body').add(EE('script', {'@async': true, '@src': '//platform.twitter.com/widgets.js'}));
+
+		if (window.mobile) return;
+		$(document).on('scroll', this.onscroll = function() {
+			var distance = (window.scrollY > 329) ? window.scrollY-329-20 : 0;
+		    $('#social').animate({'$top': distance+'px'}, 50);
+		});
+	}
+
+	this.loadComments = function() {
+	   	$('section').add(EE('div', {'@id': 'disqus_thread'})).add(EE('script', {'@async': true, '@src': '//' + config.disqus + '.disqus.com/embed.js'}));
+	    $('#disqus_thread').set({$$fade: 0}).animate({$$fade: 1});
+	}
+
+	this.destroy = function() {
+		$('section article, #scrollbubble, #disqus_thread').remove();
+		$('#social').set('$display', 'none');
+		$('#image').animate({$top: '-342px'});
+	}
+
+	this.load(cb);
+}
+
+var route = function() {
+    var hash = History.getState().url.replace(config.blogurl, '').split('/');
+    if (!hash[1])
+		window.home = new Home();
+	else
+		window.post = new Post(hash[2], function(article, title, time) { post.render(article, title, time) });
+}
+
+History.Adapter.bind(window, 'statechange', route);
+
+var path = /.+?\:\/\/.+?(\/.+?)(?:#|\?|$)/.exec(config.blogurl).pop();
+if (path[path.length-1] != '/') path += '/';
+if (window.location.search.indexOf('?post=') !== -1)
+	History.replaceState(null, null, path + 'post/' + window.location.search.replace('?post=', ''));
+else
+	route();
+
+var $buoop = {vs:{i:9,f:15,s:4,n:9}};

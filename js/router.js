@@ -19,6 +19,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
       var _this = this;
       this.routes = routes != null ? routes : {};
       History.Adapter.bind(window, 'statechange', function() {
+        console.log('statechange');
         return _this.checkRoutes(History.getState());
       });
     }
@@ -30,6 +31,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
     Router.prototype.rescue = function(callback) { this.rescue404 = callback; }
 
+    var c = 0;
+
     Router.prototype.checkRoutes = function(state) {
       var callback, regex, regexText, url, _ref;
       if (this.trigger) {
@@ -38,16 +41,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
           callback = _ref[regexText];
           regex = new RegExp(regexText);
           url = state.data.url || state.hash;
-          alert(url);
-          alert('path'+window.location.pathname);
-          url = url.replace(window.location.pathname, '/');
-          alert('final'+url);
           if (regex.test(url)) {
             callback.apply(window, regex.exec(url).slice(1));
             return this.trigger = true;
           }
         }
-        if (this.rescue404 && state.hash.indexOf('#') == -1) this.rescue404();
+        console.log('shittt');
+        this.rescue404 && this.rescue404();
       }
       return this.trigger = true;
     };

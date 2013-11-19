@@ -182,19 +182,20 @@ article time {
 	display: block;
 	opacity: 1;
 	margin-bottom: 10px;
+	background-image: url('social.png');
 }
 
-#social .twitter { background-image: url('social/Twitter.png'); }
-#social .facebook { background-image: url('social/Facebook.png'); }
-#social .google { background-image: url('social/Google.png'); }
-#social .linkedin { background-image: url('social/Linkedin.png'); }
-#social .tumblr { background-image: url('social/Tumblr.png'); }
+#social .twitter { background-position: 0px 0px; }
+#social .facebook { background-position: -48px 0px; }
+#social .google { background-position: -96px 0px; }
+#social .linkedin { background-position: -144px 0px; }
+#social .tumblr { background-position: -192px 0px; }
 
-#social .twitter:hover { background-image: url('social/Twitter_default.png'); }
-#social .facebook:hover { background-image: url('social/Facebook_default.png'); }
-#social .google:hover { background-image: url('social/Google_default.png'); }
-#social .linkedin:hover { background-image: url('img/social/Linkedin_default.png'); }
-#social .tumblr:hover { background-image: url('img/social/Tumblr_default.png'); }
+#social .twitter:hover { background-position: 0px 48px; }
+#social .facebook:hover { background-position: -48px 48px; }
+#social .google:hover { background-position: -96px 48px; }
+#social .linkedin:hover { background-position: -144px 48px; }
+#social .tumblr:hover { background-position: -192px 48px; }
 
 #scrollbubble {
 	display:none;
@@ -238,22 +239,6 @@ article time {
 
 #error404 p {
 	white-space: pre;
-}
-
-footer {
-	width: 570px;
-	border-top: solid #F8F8F8 1px;
-	border-bottom: solid 25px #556270;
-	margin: 40px auto 0 auto;
-	display: none;
-	opacity: 0;
-}
-
-footer > p {
-	color: #D0D0D0;
-	font-size: 0.7em;
-	border-top: solid #F8F8F8 1px;
-	padding: 10px 0;
 }
 
 /* MOBILE VERSION */

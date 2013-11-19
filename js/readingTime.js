@@ -6,7 +6,7 @@ function ReadingTime(element) {
 
 ReadingTime.prototype = {
 	init: function () {
-		$(document).on('scroll', this.updateTime, this, []);
+		$(document).on('scroll', this.updateTime, [this]);
 		$('body').add(EE('div', {'@id': "scrollbubble"}));
 	},
 	pos: function (elem) {
@@ -17,16 +17,16 @@ ReadingTime.prototype = {
 	    } while ( elem = elem.offsetParent );
 	    return {left: left, top: top};
 	},
-	updateTime: function () {
+	updateTime: function (_this) {
 		var bubble = $('#scrollbubble');
-	  	if (this.pos(this.element[0]).top > window.scrollY)
+	  	if (_this.pos(_this.element[0]).top > window.scrollY)
 			return;
 	  	var viewportHeight = window.innerHeight,
-	   		scrollbarHeight = viewportHeight / document.height * viewportHeight,
-	   		page_progress = window.scrollY / (document.height - viewportHeight),
-	   		progress = window.scrollY / (this.pos(this.element[0]).top + parseInt(this.element.get('$height')) - viewportHeight),
+	   		scrollbarHeight = viewportHeight / document.body.scrollHeight * viewportHeight,
+	   		page_progress = window.scrollY / (document.body.scrollHeight - viewportHeight),
+	   		progress = window.scrollY / (_this.pos(_this.element[0]).top + parseInt(_this.element.get('$height')) - viewportHeight),
 	   		distance = page_progress * (viewportHeight - scrollbarHeight) + scrollbarHeight / 2 - parseInt(bubble.get('$height')) / 2;
-	  	var total_reading_time = this.calculate_total_time_words() / 60;
+	  	var total_reading_time = _this.calculate_total_time_words() / 60;
 	  	var total_reading_time_remaining = Math.ceil(total_reading_time - (total_reading_time * progress));
 	  	var text = '';
 
@@ -34,17 +34,17 @@ ReadingTime.prototype = {
 			text = total_reading_time_remaining + ' minutes left';
 	  	else if (progress >= 1) {
 			text = 'Thanks for reading';
-			$.off(this.updateTime);
+			$.off(_this.updateTime);
 	  	} else if (total_reading_time_remaining <= 1)
 			text = 'Less than a minute';
 
 	  	bubble.set('$top', distance+'px').fill(text).set({$$fade: 1});
 
 		// Fade out the annotation after 1 second of no scrolling.
-		if (this.scroll_timer !== null)
-			clearTimeout(this.scroll_timer);
+		if (_this.scroll_timer !== null)
+			clearTimeout(_this.scroll_timer);
 
-		this.scroll_timer = setTimeout(function() {
+		_this.scroll_timer = setTimeout(function() {
 			bubble.set({$$fade: 1}).animate({$$fade: 0}, 500);
 		}, 1000);
 	},
