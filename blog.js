@@ -107,7 +107,9 @@ net.createServer(function(client) {
     	if (action == 'publish') {
     		Posts.publishAll();
     		repo.commit('Published new stuff', {all: true}, function(err) {
-    			!err && repo.remote_push('origin gh-pages');
+    			!err && repo.remote_push('origin gh-pages', function() {
+    				socket.write(JSON.stringify({event: 'success'}));
+    			});
     		});
     		
     	}
