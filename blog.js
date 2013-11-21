@@ -26,10 +26,10 @@ var Build = {
 	},
 	css: function() {
 		var css = fs.readFileSync('res/style.css', "utf8");
-		fs.writeFileSync('min.css', sqwish.minify(css, true) + '/*@ sourceURL=res/style.css */');
+		fs.writeFileSync('min.css', sqwish.minify(css, false) + '/*@ sourceURL=res/style.css */');
 	},
 	js: function() {
-		var js = uglify.minify(["js/minified.js", "js/history.js", "js/router.js", "js/readingTime.js", "user/config.js", "js/script.js"], {
+		var js = uglify.minify(["js/minified.js", "js/history.js", "js/readingTime.js", "user/config.js", "js/script.js"], {
 		    outSourceMap: "min.js.map"
 		});
 		fs.writeFileSync('min.js', js.code + '//# sourceMappingURL=min.js.map');
@@ -41,14 +41,15 @@ var Posts = {
 	template: fs.readFileSync('res/post.html'),
 	
 	publish: function(file) {
+		console.log(file);
 		var id = file.replace('.md', '').replace(/ /g, '_').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase();
 
 		var post = {orig: {md: file, img: file.replace('.md', '.jpg')}, html: 'post/'+id+'.html', img: 'post/'+id+'.jpg' };
 
 		var data = config;
-		data.url = config.blogurl + post.html;
+		data.url = config.blogurl +'/'+ post.html;
 		data.title = file.replace('.md', '');
-		data.img = config.blogurl + post.img;
+		data.img = config.blogurl +'/'+ post.img;
 		// or existing date if you are updatingggg
 		data.date = new Date().toISOString();
 		data.article = markdown.toHTML(fs.readFileSync('post/drafts/' + post.orig.md, "utf8"));
@@ -58,11 +59,8 @@ var Posts = {
 
 		fs.writeFileSync(post.html, html);
 		fs.renameSync('post/drafts/' + post.orig.md, 'post/published/' + post.orig.md);
-
-		try {
-			fs.createReadStream('post/drafts/' + post.orig.img).pipe(fs.createWriteStream(post.img));
-			fs.renameSync('post/drafts/' + post.orig.img, 'post/published/' + post.orig.md);
-		} catch (e) {}
+		fs.createReadStream('post/drafts/' + post.orig.img).pipe(fs.createWriteStream(post.img));
+		fs.renameSync('post/drafts/' + post.orig.img, 'post/published/' + post.orig.img);
 
 		var posts = fs.readFileSync('posts.txt', "utf8").split(',').slice(0, -1);
 		if (posts.indexOf(id) == -1)
@@ -102,13 +100,13 @@ var socket;
 try { fs.unlinkSync('/tmp/postre.sock'); } catch (e) {}
 net.createServer(function(client) {
 	socket = client;
+	socket.write(JSON.stringify({event: 'hello', data: __dirname}));
     client.on('data', function(data) {
     	var action = JSON.parse(data.toString()).action;
     	if (action == 'publish') {
     		Posts.publishAll();
     		repo.commit('Published new stuff', {all: true}, function(err) {
-    			!err && repo.remote_push('origin gh-pages', function(err) {
-    				console.log(err);
+    			!err && repo.remote_push('origin HEAD:gh-pages', function(err) {
     				socket.write(JSON.stringify({event: 'success'}));
     			});
     		});
@@ -117,23 +115,34 @@ net.createServer(function(client) {
     });
 }).listen('/tmp/postre.sock');
 
-var repo = git('.');
+var repo = git('.'),
+	vipFiles = ['res/home.html', 'res/post.html', 'user/config.js'],
+	devFiles = ['res/style.css', 'js/minified.js', 'js/history.js', 'js/readingTime.js', 'user/config.js', 'js/script.js'];
 
 watch.createMonitor('.', {ignoreDotFiles: true}, function (monitor) {
     monitor.on("created", function (f, stat) {
     	if (f.indexOf('.md') == -1) return;
     	
-    	socket.write(JSON.stringify({file: __dirname + '/' + f, event: 'created'}));
+    	socket.write(JSON.stringify({data: __dirname + '/' + f, event: 'created'}));
     });
     monitor.on("changed", function (f, curr, prev) {
-    	if (f.indexOf('.md') == -1) return;
-
-    	socket.write(JSON.stringify({file: __dirname + '/' + f, event: 'change'}));
+    	if (vipFiles.indexOf(f) !== -1) {
+    		delete require.cache[require.resolve('./user/config.js')];
+    		config = require('./user/config.js');
+    		Build.html();
+    		fs.readdirSync('post/published').forEach(function(post) {
+				fs.renameSync('post/published/'+post, 'post/drafts/'+post);
+			});
+    		Posts.publishAll();
+    	} else if (devFiles.indexOf(f) !== -1)
+	    	Build[f.split('.').pop()]();
+    	else
+			socket.write(JSON.stringify({data: __dirname + '/' + f, event: 'change'}));
     });
     monitor.on("removed", function (f, stat) {
     	if (f.indexOf('.md') == -1) return;
 
-    	socket.write(JSON.stringify({file: __dirname + '/' + f, event: 'removed'}));
+    	socket.write(JSON.stringify({data: __dirname + '/' + f, event: 'removed'}));
     	var title = f.replace('post/published/', '').replace('.md', '');
     	Posts.remove(title);
     	repo.commit(title + ' was deleted', {all: true});
